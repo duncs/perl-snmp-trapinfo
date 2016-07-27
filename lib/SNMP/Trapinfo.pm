@@ -85,6 +85,14 @@ sub expand {
 			}
 		}
 
+        # if the string and newval both contains quotes then we can
+        # end up with returning '""value""'
+        # which eval doesn't like.  Look for this and change to return
+        # '"value"' instead
+        if($string =~ m/"\${$key}"/ && $newval =~ m/\A"(.*)"\Z/) {
+            $newval = $1;
+        }
+
 		# Must use same match as while loop
 		# Otherwise possible infinite loop
 		# though not sure why (see tests for examples)

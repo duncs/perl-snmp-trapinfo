@@ -2,6 +2,7 @@ Revision history for Perl extension SNMP::Trapinfo
 
 1.04 ????-??-??
     Added parsing of multiline traps, where lines are quoted using "
+    Fix expanding of '"${V10}"' being returned as '""value""' when value is already quoted in the trap
 
 1.03 2014-09-22
     Added option to hide passwords on read of the packet

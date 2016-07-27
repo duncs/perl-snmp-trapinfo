@@ -6,7 +6,7 @@ use warnings;
 use Carp;
 use Safe;		# Safe module, creates a compartment for eval's and tests for disabled commands
 
-our $VERSION = '1.03';
+our $VERSION = '1.04';
 
 sub AUTOLOAD {
         my $self = shift;
@@ -167,6 +167,36 @@ sub read {
 	}
 	$self->{packet} =~ s/\n*$//;
 	my @packet = split("\n", $self->{packet});
+	{
+		# go through the array and look for lines that might be joinable
+		# assume multi-lines are surrounded by quotes, so only one quote
+		# character means join the next line onto the current one
+
+		# Work from a copy of the packet incase we decide to make no changes
+		my @copy_packet = @packet;
+		my @new_packet;
+		my $within_quotes=0;
+		# use defined here to allow blank lines through
+		while( defined( my $line = shift @copy_packet)) {
+			if($within_quotes) {
+				$new_packet[-1] .= $line;
+				my $quotes = $new_packet[-1] =~ tr/"/"/;
+				$within_quotes = 0 if( $quotes % 2 == 0 );
+				next;
+			}
+
+			push(@new_packet, $line);
+
+			{
+				my $quotes = $new_packet[-1] =~ tr/"/"/;
+				$within_quotes = 1 if( $quotes % 2 == 1 );
+			}
+		}
+
+		# Only rewrite the packet is it looks like we correctly
+		# joined up all the lines
+		@packet=@new_packet if($within_quotes == 0 );
+	}
 	chomp($_ = shift @packet);
 	$self->hostname($_);
 	$self->{P}->[0] = $_;

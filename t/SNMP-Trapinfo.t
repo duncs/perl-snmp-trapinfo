@@ -6,7 +6,7 @@
 
 # change 'tests => 1' to 'tests => last_test_to_print';
 
-use Test::More tests => 115;
+use Test::More tests => 114;
 BEGIN { use_ok('SNMP::Trapinfo') };
 
 #########################
@@ -382,7 +382,3 @@ cmp_ok( $trap->expand('${saatrap::saaEventName}'), 'eq', '"Message Sent"', "saat
 cmp_ok( $trap->expand('${V5}'), 'eq', '"Message Sent"', "V5 is correct on broken multiline trap");
 cmp_ok( $trap->expand('${saatrap::saaEventClass}'), 'eq', '"Message', "saatrap::saaEventClass broken multiline can be read");
 cmp_ok( $trap->expand('${V4}'), 'eq', '"Message', "V4 broken multiline can be read");
-
-# be careful that ('"${V3}"') doesn't translate to '""Info""' which 'eval' cannot handle
-# but instead can be '"Info"' which is okay
-cmp_ok( $trap->expand('"${V3}"'), 'eq', '"Info"', 'Too many quotes removed');

@@ -168,18 +168,18 @@ sub read {
 	$self->{packet} =~ s/\n*$//;
 	my @packet = split("\n", $self->{packet});
 	{
-		# go through the array and look for lines that might be joinable
-		# assume multi-lines are surrounded by quotes, so only one quote
+		# Go through the array and look for lines that might be joinable.
+		# Assume multi-lines are surrounded by quotes, so only one quote
 		# character means join the next line onto the current one
 
-		# Work from a copy of the packet incase we decide to make no changes
+		# Work from a copy of the packet in case we decide to make no changes
 		my @copy_packet = @packet;
 		my @new_packet;
 		my $within_quotes=0;
 		# use defined here to allow blank lines through
 		while( defined( my $line = shift @copy_packet)) {
 			if($within_quotes) {
-				$new_packet[-1] .= $line;
+				$new_packet[-1] .= "\n".$line;
 				my $quotes = $new_packet[-1] =~ tr/"/"/;
 				$within_quotes = 0 if( $quotes % 2 == 0 );
 				next;
@@ -193,7 +193,7 @@ sub read {
 			}
 		}
 
-		# Only rewrite the packet is it looks like we correctly
+		# Only rewrite the packet if it looks like we have correctly
 		# joined up all the lines
 		@packet=@new_packet if($within_quotes == 0 );
 	}
@@ -214,7 +214,7 @@ sub read {
 	foreach $_ (@packet) {
 		$i++;
 		# Ignore spaces in middle
-		my ($key, $value) = /^([^ ]+) +([^ ].*)$/;
+		my ($key, $value) = /^([^ ]+) +([^ ].*)$/s;
 		# If syntax is wrong, ignore this line
 		next unless defined $key;
 		$key = $self->cleanup_string($key);

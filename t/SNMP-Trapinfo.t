@@ -6,7 +6,7 @@
 
 # change 'tests => 1' to 'tests => last_test_to_print';
 
-use Test::More tests => 114;
+use Test::More;
 BEGIN { use_ok('SNMP::Trapinfo') };
 
 #########################
@@ -364,7 +364,11 @@ cmp_ok( $trap->expand('${saatrap::saaEventName}'), 'eq', '"Message Sent"', "saat
 cmp_ok( $trap->expand('${SNMP-COMMUNITY-MIB::snmpTrapAddress}'), 'eq', '192.168.100.10', "SNMP-COMMUNITY-MIB::snmpTrapAddress is correct on multiline trap");
 cmp_ok( $trap->expand('${SNMPv2-MIB::snmpTrapEnterprise}'), 'eq', 'saatrap::saa', "SNMPv2-MIB::snmpTrapEnterprise is correct on multiline trap");
 cmp_ok( $trap->expand('${V16}'), 'eq', 'saatrap::saa', "V16 is correct on multiline trap");
-ok( $trap->expand('${saatrap::saaEventDescription}') =~ m/ABCDABCDABCDABCDABCDABCD123/, "saatrap::saaEventDescription contains data from multiple lines");
+is( $trap->expand('${saatrap::saaEventDescription}'), q{"Message Partner DataStoreIn, Session 2129 - Message sent
+    Sequence number : 1
+    UUMID           : ABCDABCDABCDABCDABCDABCD123
+    Suffix          : 1059726480192
+"}, "saatrap::saaEventDescription contains data from multiple lines");
 
 # make sure broken multiple lines do not stop reading the whole packet
 $data = <<EOF;
@@ -382,3 +386,5 @@ cmp_ok( $trap->expand('${saatrap::saaEventName}'), 'eq', '"Message Sent"', "saat
 cmp_ok( $trap->expand('${V5}'), 'eq', '"Message Sent"', "V5 is correct on broken multiline trap");
 cmp_ok( $trap->expand('${saatrap::saaEventClass}'), 'eq', '"Message', "saatrap::saaEventClass broken multiline can be read");
 cmp_ok( $trap->expand('${V4}'), 'eq', '"Message', "V4 broken multiline can be read");
+
+done_testing();

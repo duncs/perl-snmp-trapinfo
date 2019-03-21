@@ -1,8 +1,15 @@
 Revision history for Perl extension SNMP::Trapinfo
 
-1.04 0000-00-00
+1.06 0000-00-00
+    Added parsing of multiline traps, where lines are quoted using "
     Added 'eval { ... }' to enable some calculations 
       Example: $result = $cp->expand( 'eval { sprintf("%.2f", ${V6} / ${V9} ) }');
+
+1.05 2018-12-10
+    Set license to perl_5 (Mohammad S Anwar)
+
+1.04 2018-12-10
+    Fixed 'Unescaped left brace in regex is illegal here' warning message in perl 5.22+
 
 1.03 2014-09-22
     Added option to hide passwords on read of the packet

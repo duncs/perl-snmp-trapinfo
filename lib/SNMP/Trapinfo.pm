@@ -6,7 +6,7 @@ use warnings;
 use Carp;
 use Safe;		# Safe module, creates a compartment for eval's and tests for disabled commands
 
-our $VERSION = '1.04';
+our $VERSION = '1.06';
 
 sub AUTOLOAD {
         my $self = shift;
@@ -75,11 +75,14 @@ sub expand {
 	my $string = shift;
 	return "" if ! defined $string;
 	my $key;
-	while ( ($key) = ($string =~ /\${([\w\-\.\*:]+)}/) ) {
+	while ( ($key) = ($string =~ /\$\{([\w\-\.\*:]+)}/) ) {
 		my $newval;
 		my ($action, $line) = $key =~ /^([PV])(\d+)?$/;
 		if ($action && $line) {
-			$newval = $self->$action($line) || "(null)";
+			$newval = $self->$action($line);
+			if (!defined $newval) {
+				$newval = "(null)";
+			}
 		} elsif ($key eq "DUMP") {
 			my %h = %{$self->data};
 			delete $h{"SNMP-COMMUNITY-MIB::snmpTrapCommunity"};
@@ -90,9 +93,15 @@ sub expand {
 			$newval = $self->hostip;
 		} else {
 			if ($key =~ /\*/) {
-				$newval = $self->match_key($key) || "(null)";
+				$newval = $self->match_key($key);
+				if (!defined $newval) {
+					$newval =  "(null)";
+				}
 			} else {
-				$newval = $self->data->{$key} || "(null)";
+				$newval = $self->data->{$key};
+				if (!defined $newval) {
+					$newval = "(null)";
+				}
 			}
 		}
 
@@ -100,7 +109,7 @@ sub expand {
 		# Otherwise possible infinite loop
 		# though not sure why (see tests for examples)
 		#$string =~ s/\${$key}/$newval/;
-		$string =~ s/\${([\w\-\.\*:]+)}/$newval/;	
+        $string =~ s/\$\{([\w\-\.\*:]+)\}/$newval/;
 	}
 
 	# eval calculation performed within Safe for security
@@ -173,6 +182,36 @@ sub read {
 	}
 	$self->{packet} =~ s/\n*$//;
 	my @packet = split("\n", $self->{packet});
+	{
+		# Go through the array and look for lines that might be joinable.
+		# Assume multi-lines are surrounded by quotes, so only one quote
+		# character means join the next line onto the current one
+
+		# Work from a copy of the packet in case we decide to make no changes
+		my @copy_packet = @packet;
+		my @new_packet;
+		my $within_quotes=0;
+		# use defined here to allow blank lines through
+		while( defined( my $line = shift @copy_packet)) {
+			if($within_quotes) {
+				$new_packet[-1] .= "\n".$line;
+				my $quotes = $new_packet[-1] =~ tr/"/"/;
+				$within_quotes = 0 if( $quotes % 2 == 0 );
+				next;
+			}
+
+			push(@new_packet, $line);
+
+			{
+				my $quotes = $new_packet[-1] =~ tr/"/"/;
+				$within_quotes = 1 if( $quotes % 2 == 1 );
+			}
+		}
+
+		# Only rewrite the packet if it looks like we have correctly
+		# joined up all the lines
+		@packet=@new_packet if($within_quotes == 0 );
+	}
 	chomp($_ = shift @packet);
 	$self->hostname($_);
 	$self->{P}->[0] = $_;
@@ -190,7 +229,7 @@ sub read {
 	foreach $_ (@packet) {
 		$i++;
 		# Ignore spaces in middle
-		my ($key, $value) = /^([^ ]+) +([^ ].*)$/;
+		my ($key, $value) = /^([^ ]+) +([^ ].*)$/s;
 		# If syntax is wrong, ignore this line
 		next unless defined $key;
 		$key = $self->cleanup_string($key);
@@ -217,14 +256,12 @@ sub fully_translated {
 sub P {
 	my ($self, $line) = @_;
 	$_ = $self->{P}->[--$line];
-	$_ = "" unless defined $_;
 	return $_;
 }
 
 sub V {
 	my ($self, $line) = @_;
 	$_ = $self->{V}->[--$line];
-	$_ = "" unless defined $_;
 	return $_;
 }
 

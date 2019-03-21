@@ -1,11 +1,12 @@
 # Before `make install' is performed this script should be runnable with
-# `make test'. After `make install' it should work as `perl SNMP-Trapinfo.t'
+# `make test' or 'prove -Ilib -v t/SNMP-Trapinfo.t'
+# After `make install' it should work as `perl SNMP-Trapinfo.t'
 
 #########################
 
 # change 'tests => 1' to 'tests => last_test_to_print';
 
-use Test::More tests => 107;
+use Test::More;
 BEGIN { use_ok('SNMP::Trapinfo') };
 
 #########################
@@ -64,8 +65,8 @@ cmp_ok( $trap->P(3), 'eq', "sysUpTime", "Got p3 correctly");
 cmp_ok( $trap->P(9), 'eq', "snmpTrapAddress", "Got p9 correctly");
 cmp_ok( $trap->V(5), '==', 2, "Got v5 correctly");
 cmp_ok( $trap->V(8), 'eq', '"PPP LCP Open"', "Got v8 correctly");
-    is( $trap->V(13), '', "No V13 - got blank");
-    is( $trap->P(25), '', "No P25 - got blank");
+    is( $trap->V(13), undef, "No V13 - got blank");
+    is( $trap->P(25), undef, "No P25 - got blank");
     is( $trap->V(12), '0', "Got a zero for V correctly");
     is( $trap->P(12), '0', "Got a zero for P correctly");
 cmp_ok( $trap->expand('Port ${IF-MIB::ifIndex} (${P7}=${V7}) is Up with message ${V8}'), 'eq', 
@@ -248,8 +249,23 @@ cmp_ok( $trap->eval('"${CERENT-454-MIB::cerent454AlarmPortNumber.*.remoteAlarmIn
     is( $trap->last_eval_string, '"(null)" =~ /stuff/', "Expanded correctly");
     is( $trap->expand('${SNMP-COMMUNITY-MIB::snmpTrapCommunity}'), '"*****"', "Password hidden on input");
 
+
+$data = <<EOF;
+localhost
+UDP: [127.0.0.1]:48932->[127.0.0.1]:162
+DISMAN-EXPRESSION-MIB::sysUpTimeInstance 3:23:35:13.48
+SNMPv2-MIB::snmpTrapOID.0 IF-MIB::linkUp
+IBM-6611-APPN-MIB::ibmProd.258.1.1 0
+EOF
+
+$trap = SNMP::Trapinfo->new(\$data, { hide_passwords => 1 } );
+cmp_ok( $trap->eval('${IBM-6611-APPN-MIB::ibmProd.258.1.1} <= 4294967295'),
+	"eq", 1, "Got value of 0");
+is( $trap->expand('${IBM-6611-APPN-MIB::ibmProd.258.1.1} <= 4294967295'), "0 <= 4294967295", "Expands correctly");
+
+
 # Infinite loop tests
-  diag "Doing infinite tests";
+  note "Doing infinite tests";
     is( $trap->eval('"${CERENT-454-MIB::cerent454AlarmPortNumber*}" eq "infinite"'), 0, "No infinite loop! - phew");
     
 
@@ -342,3 +358,58 @@ cmp_ok( $trap->expand('eval{sprintf("%.2f",${V5}*${V5})}'), 'eq', "576.00", "eva
 cmp_ok( $trap->expand('eval{ ${V5} / 0 }'), 'eq', '', "divide by 0" );
 cmp_ok( $trap->expand('eval{ ${V10} * 1 }'), 'eq', '', "no such var" );
 cmp_ok( $trap->expand('eval{ ${V10  }'), 'eq', '', "bad braces" );
+
+$data = <<EOF;
+hostname.domain
+UDP: [192.168.100.10]:61613->[192.168.100.10]:162
+DISMAN-EVENT-MIB::sysUpTimeInstance 0:0:00:00.01
+SNMPv2-MIB::snmpTrapOID.0 saatrap::snmpSAAEvent
+saatrap::saaInstance "owieu28a"
+saatrap::saaDate "01/01/2016"
+saatrap::saaTime "12:00:00"
+saatrap::saaPlugin "PPQ"
+saatrap::saaEventNumber 10000
+saatrap::saaEventSeverity "Info"
+saatrap::saaEventClass "Message"
+saatrap::saaEventName "Message Sent"
+saatrap::saaEventDescription "Message Partner DataStoreIn, Session 2129 - Message sent
+    Sequence number : 1
+    UUMID           : ABCDABCDABCDABCDABCDABCD123
+    Suffix          : 1059726480192
+"
+SNMP-COMMUNITY-MIB::snmpTrapAddress.0 192.168.100.10
+SNMP-COMMUNITY-MIB::snmpTrapCommunity.0 "*****"
+SNMPv2-MIB::snmpTrapEnterprise.0 saatrap::saa
+EOF
+eval '$trap = SNMP::Trapinfo->new(\$data)';
+is( $@, '', "No errors from reading trap");
+isa_ok( $trap, "SNMP::Trapinfo");
+cmp_ok( $trap->expand('${V8}'), 'eq', '"PPQ"', "V8 is correct on multiline trap");
+cmp_ok( $trap->expand('${saatrap::saaEventName}'), 'eq', '"Message Sent"', "saatrap::saaEventName is correct on multiline trap");
+cmp_ok( $trap->expand('${SNMP-COMMUNITY-MIB::snmpTrapAddress}'), 'eq', '192.168.100.10', "SNMP-COMMUNITY-MIB::snmpTrapAddress is correct on multiline trap");
+cmp_ok( $trap->expand('${SNMPv2-MIB::snmpTrapEnterprise}'), 'eq', 'saatrap::saa', "SNMPv2-MIB::snmpTrapEnterprise is correct on multiline trap");
+cmp_ok( $trap->expand('${V16}'), 'eq', 'saatrap::saa', "V16 is correct on multiline trap");
+is( $trap->expand('${saatrap::saaEventDescription}'), q{"Message Partner DataStoreIn, Session 2129 - Message sent
+    Sequence number : 1
+    UUMID           : ABCDABCDABCDABCDABCDABCD123
+    Suffix          : 1059726480192
+"}, "saatrap::saaEventDescription contains data from multiple lines");
+
+# make sure broken multiple lines do not stop reading the whole packet
+$data = <<EOF;
+hostname.domain
+UDP: [192.168.100.10]:61613->[192.168.100.10]:162
+saatrap::saaEventSeverity "Info"
+saatrap::saaEventClass "Message
+saatrap::saaEventName "Message Sent"
+EOF
+
+eval '$trap = SNMP::Trapinfo->new(\$data)';
+is( $@, '', "No errors from reading trap");
+isa_ok( $trap, "SNMP::Trapinfo");
+cmp_ok( $trap->expand('${saatrap::saaEventName}'), 'eq', '"Message Sent"', "saatrap::saaEventName is correct on broken multiline trap");
+cmp_ok( $trap->expand('${V5}'), 'eq', '"Message Sent"', "V5 is correct on broken multiline trap");
+cmp_ok( $trap->expand('${saatrap::saaEventClass}'), 'eq', '"Message', "saatrap::saaEventClass broken multiline can be read");
+cmp_ok( $trap->expand('${V4}'), 'eq', '"Message', "V4 broken multiline can be read");
+
+done_testing();

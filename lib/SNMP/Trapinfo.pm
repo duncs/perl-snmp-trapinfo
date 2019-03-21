@@ -468,6 +468,18 @@ this would return:
 
   Port 2 (ifType=ppp) is Up with message "PPP LCP Open"
 
+It is also possible to perform calculations between values within C<expand()>.  For example:
+
+  $result = $trap->expand('eval { ${V5} * ${V8} }');
+  $result = $trap->expand('eval { ${V10} * ${V9} / 100 }');
+  $result = $trap->expand('eval { sprintf("%.2f", ${V3} / ${V4} ) }');
+
+Invalid calculations will return empty strings.
+
+  $result = $trap->expand('eval{ ${V5} / 0 }');  # divide by zero
+  $result = $trap->expand('eval{ ${V10} * 1 }'); # where V10 is empty
+  $result = $trap->expand('eval{ ${V10  }');     # mismatched braces
+
 =item eval($string)
 
 $string is passed into expand to expand any macros. Then the entire string is eval'd.

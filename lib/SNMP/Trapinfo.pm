@@ -364,6 +364,13 @@ Any trailing linefeeds will be stripped.
 Apart from the first two lines, expects each line to be of the format: key value. If not, then will silently ignore
 the line.
 
+The value can be enclosed with double quotes and the quoted value may contain multiple lines
+
+  SNMPv2-SMI::enterprises.12345.1.1.1 = STRING: "
+  Alert Name: Multiple login failures detected
+  Current value: 10.0
+  Threshold: 2.0"
+
 If you want to use multiple packets within a stream, you have to put a marker in between
 each trap: "#---next trap---#\n". Then call SNMP::Trapinfo->new(*STDIN) again. Will receive an undef if 
 there are no more packets to read or the packet is malformed (such as no IP on the 2nd line).
